@@ -20,8 +20,14 @@ type Chapter struct {
 }
 
 type Option struct {
-	Text string `json:"text"`
-	Chapter  string `json:"arc"`
+	Text    string `json:"text"`
+	Chapter string `json:"arc"`
+}
+
+var tpl *template.Template
+
+func init() {
+	tpl = template.Must(template.New("").Parse(defaultHandlerTemplate))
 }
 
 // Decode the file and return a Story object
@@ -34,12 +40,6 @@ func JsonStory(r io.Reader) (Story, error) {
 	}
 	return story, nil
 
-}
-
-var tpl *template.Template
-
-func init() {
-	tpl = template.Must(template.New("").Parse(defaultHandlerTemplate))
 }
 
 // easier to package it inside our source code
@@ -67,6 +67,16 @@ var defaultHandlerTemplate = `
 
 type handler struct {
 	s Story
+	t *template.Template
+}
+
+// Functional Option design pattern
+type HandlerOption func(h *handler)
+
+func WithTemplate(t *template.Template) HandlerOption {
+	return func(h *handler) {
+		h.t = t
+	}
 }
 
 // It is better to return an interface rather than returning a handler type
@@ -74,8 +84,12 @@ type handler struct {
 // methods are under the interface.
 // If we were to return the handler type, the methods under the interface
 // won't get exported.
-func NewHandler(s Story) http.Handler {
-	return handler{s}
+func NewHandler(s Story, opts ...HandlerOption) http.Handler {
+	h := handler{s, tpl}
+	for _, opt := range opts {
+		opt(&h)
+	}
+	return h
 }
 
 // ServehTTP can be called by a handler object
@@ -91,7 +105,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path = path[1:]
 	fmt.Printf("--- the path is: %s \n", path)
 	if chapter, ok := h.s[path]; ok {
-		err := tpl.Execute(w, chapter)
+		err := h.t.Execute(w, chapter)
 		if err != nil {
 			log.Printf("%v", err)
 			// Don't expose development errors to the end users because it could contain something
