@@ -84,6 +84,16 @@ func WithTemplate(t *template.Template) HandlerOption {
 // methods are under the interface.
 // If we were to return the handler type, the methods under the interface
 // won't get exported.
+
+/*
+For each option function provided to the NewHandler,
+we call that function by passing in a pointer to the handler struct
+that was just declared.
+
+Using this pattern, we can make API that has is highly configurable,
+can grow over time, self documenting, safe for newcorners and never
+requires a nil or an empty value to keep the compiler happy.
+*/
 func NewHandler(s Story, opts ...HandlerOption) http.Handler {
 	h := handler{s, tpl}
 	for _, opt := range opts {
